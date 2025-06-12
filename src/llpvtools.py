@@ -17,6 +17,38 @@ def get_reshaped_xyz(grid, field_for_z, at="node"):
     """
     Return x, y, and z coordinates of nodes or corners reshaped as
     (number of rows, number of columns). Use specified field for z.
+
+    Parameters
+    ----------
+    grid : RasterModelGrid
+        The grid to be reshaped
+    field_for_z : str
+        Name of the field containing the z coordinate values
+    at : str (optional)
+        Name of grid elements: "node" (default) or "corner"
+
+    Returns
+    -------
+    ndarray, ndarray, ndarray : x, y, and z coordinates reshaped
+
+    Examples
+    --------
+    >>> from landlab import RasterModelGrid
+    >>> grid = RasterModelGrid((3, 4), 10.0)
+    >>> z = grid.add_field("z", np.arange(12))
+    >>> xx, yy, zz = get_reshaped_xyz(grid, "z")
+    >>> xx
+    array([[ 0., 10., 20., 30.],
+           [ 0., 10., 20., 30.],
+           [ 0., 10., 20., 30.]])
+    >>> yy
+    array([[ 0.,  0.,  0.,  0.],
+           [10., 10., 10., 10.],
+           [20., 20., 20., 20.]])
+    >>> zz
+    array([[ 0,  1,  2,  3],
+           [ 4,  5,  6,  7],
+           [ 8,  9, 10, 11]])
     """
     if at=="node":
         nr = grid.number_of_node_rows
@@ -37,7 +69,7 @@ def get_reshaped_xyz(grid, field_for_z, at="node"):
 
 def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
     """
-    Add grid fields to a pyVista DataSet as data arrays.
+    Add grid fields to a PyVista DataSet as data arrays.
 
     Parameters
     ----------
@@ -60,8 +92,10 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
     >>> _ = rmg.add_zeros("node_field2", at="node")
     >>> pvsg = StructuredGrid(rmg.x_of_node.reshape((3, 3)), rmg.y_of_node.reshape((3, 3)), z.reshape((3, 3)))
     >>> _ = add_fields_to_pv_dataset(rmg, pvsg, z_field="z")
-    >>> pvsg.array_names
-    ['node_field2', 'node_field1']
+    >>> names = pvsg.array_names.copy()
+    >>> names.sort()
+    >>> names
+    ['node_field1', 'node_field2']
     """
     for field in grid.fields(include="at_" + at + "*"):
         fieldname = field[field.find(":") + 1:]
@@ -69,6 +103,37 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
             dataset.point_data[fieldname] = grid.field_values(fieldname, at=at)
 
 def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
+    """
+    Translate a RasterModelGrid into a PyVista 2D StructuredGrid.
+    Includes node or corner fields as data arrays.
+
+    Parameters
+    ----------
+    grid : RasterModelGrid
+        The grid to translate
+    field_for_z : str
+        Name of field to use for z coordinate
+    at : str (optional)
+        Which points to use: "node" (default) or "corner"
+
+    Returns
+    -------
+    A PyVista StructuredGrid object
+
+    Examples
+    --------
+    >>> from landlab import RasterModelGrid
+    >>> grid = RasterModelGrid((4, 5), 10.0)
+    >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node")
+    >>> struc_grd = raster_grid_to_pv2d_struct(grid, "z")
+    >>> struc_grd.dimensions
+    (4, 5, 1)
+
+    >>> zc = grid.add_field("zc", np.arange(grid.number_of_corners), at="corner")
+    >>> struc_grd = raster_grid_to_pv2d_struct(grid, "zc", at="corner")
+    >>> struc_grd.dimensions
+    (3, 4, 1)
+    """
     x, y, z = get_reshaped_xyz(grid, field_for_z, at)
     struc_pv_grid = pv.StructuredGrid(x, y, z)
     add_fields_to_pv_dataset(grid, struc_pv_grid, at=at)
@@ -76,15 +141,55 @@ def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
 
 def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
     """
-    Create and return a pyVista 3D StructuredGrid.
+    Create and return a pyVista 3D StructuredGrid. Same as 
+    raster_grid_to_pv2d_struct except that the PyVista grid
+    is 3D, with two layers: one the z-coordinate of the Landlab
+    grid, and the other a flat base at either a user-specified
+    depth or a default value.
 
-    The 3D nature comes from having two "layers": "field_for_z" on top, and ... TODO enable field for base...
+    ... TODO enable field for base...
+
+    Parameters
+    ----------
+    grid : RasterModelGrid
+        The grid to translate
+    field_for_z : str
+        Name of field to use for z coordinate
+    at : str (optional)
+        Which points to use: "node" (default) or "corner"
+
+    Returns
+    -------
+    PyVista StructuredGrid object of dimensions (nr, nc, 2),
+    where nr and nc are the number of node (or corner) rows
+    and columns, respectively, in the Landlab grid.
+
+    Examples
+    --------
+    >>> from landlab import RasterModelGrid
+    >>> grid = RasterModelGrid((4, 5), 10.0)
+    >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node", depth=20.0)
+    >>> raster_grid_to_pv3d_struct(grid, "z")
+    StructuredGrid (...)
+      N Cells:      12
+      N Points:     40
+      X Bounds:     0.000e+00, 4.000e+01
+      Y Bounds:     0.000e+00, 3.000e+01
+      Z Bounds:     -2.000e+01, 1.900e+01
+      Dimensions:   4, 5, 2
+      N Arrays:     0
+
+    >>> zc = grid.add_field("zc", np.arange(grid.number_of_corners), at="corner")
+    >>> raster_grid_to_pv3d_struct(grid, "zc", at="corner")
+    StructuredGrid (...)
+      N Cells:      6
+      N Points:     24
+      X Bounds:     5.000e+00, 3.500e+01
+      Y Bounds:     5.000e+00, 2.500e+01
+      Z Bounds:     -1.500e+01, 1.100e+01
+      Dimensions:   3, 4, 2
+      N Arrays:     0
     """
-
-    # default bottom of grid is flat surface at depth equal to half the widest grid extent
-    if depth is None:
-        depth = max(np.amax(grid.x_of_node) - np.amin(grid.x_of_node),
-                    np.amax(grid.y_of_node) - np.amin(grid.y_of_node)) / 2
 
     if at=="node":
         x = grid.x_of_node
@@ -101,14 +206,19 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
     else:
         raise(ValueError, "'at' must be 'node' or 'corner'")
     
+    # default bottom of grid is flat surface at depth below lowest point
+    # equal to half the widest grid extent
+    if depth is None:
+        depth = max(np.amax(x) - np.amin(x),
+                    np.amax(y) - np.amin(y)) / 2
+        depth -= np.amin(z)
+
     top = np.column_stack((x, y, z))
     bottom = top.copy()
-    bottom[:,2] =  -depth
+    bottom[:,2] = -depth
 
     vol = pv.StructuredGrid()
     vol.points = np.vstack((top, bottom))
     vol.dimensions = [nr, nc, 2]
 
-    print(vol.dimensions)
-          
     return vol
