@@ -4,7 +4,7 @@
 import numpy as np
 import pyvista as pv
 
- 
+
 def grid_to_pv(grid):
     """
     Create a pyVista DataSet from a Landlab grid and associated fields.
@@ -67,7 +67,7 @@ def get_reshaped_xyz(grid, field_for_z, at="node"):
 
     return x, y, z
 
-def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
+def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0):
     """
     Add grid fields to a PyVista DataSet as data arrays.
 
@@ -81,13 +81,15 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
         Name of the field that's used for the z-coordinate (default "")
     at : str (optional)
         Name of Landlab grid element (default "node")
+    base_vals : float (optional)
+        If 3d, value to use for bottom points (default 0.0)
 
     Examples
     --------
     >>> from landlab import RasterModelGrid
     >>> from pyvista import StructuredGrid
     >>> rmg = RasterModelGrid((3, 3))
-    >>> z = rmg.add_ones("z", at="node")
+    >>> z = rmg.add_field("z", np.arange(9))
     >>> _ = rmg.add_zeros("node_field1", at="node")
     >>> _ = rmg.add_zeros("node_field2", at="node")
     >>> pvsg = StructuredGrid(rmg.x_of_node.reshape((3, 3)), rmg.y_of_node.reshape((3, 3)), z.reshape((3, 3)))
@@ -97,10 +99,20 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node"):
     >>> names
     ['node_field1', 'node_field2']
     """
+    is3d = False
+    if at=="node":
+        npts = grid.number_of_nodes
+    else:
+        npts = grid.number_of_corners
+    if dataset.n_points==(2 * npts):
+        is3d = True
     for field in grid.fields(include="at_" + at + "*"):
         fieldname = field[field.find(":") + 1:]
         if fieldname != z_field:
-            dataset.point_data[fieldname] = grid.field_values(fieldname, at=at)
+            vals = grid.field_values(fieldname, at=at)
+            if is3d:
+                vals = np.hstack((vals, base_vals + np.zeros(npts)))
+            dataset.point_data[fieldname] = vals
 
 def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
     """
@@ -177,7 +189,7 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
       Y Bounds:     0.000e+00, 3.000e+01
       Z Bounds:     -2.000e+01, 1.900e+01
       Dimensions:   4, 5, 2
-      N Arrays:     0
+      N Arrays:     1
 
     >>> zc = grid.add_field("zc", np.arange(grid.number_of_corners), at="corner")
     >>> raster_grid_to_pv3d_struct(grid, "zc", at="corner")
@@ -188,7 +200,7 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
       Y Bounds:     5.000e+00, 2.500e+01
       Z Bounds:     -1.500e+01, 1.100e+01
       Dimensions:   3, 4, 2
-      N Arrays:     0
+      N Arrays:     1
     """
 
     if at=="node":
@@ -221,4 +233,6 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
     vol.points = np.vstack((top, bottom))
     vol.dimensions = [nr, nc, 2]
 
+    add_fields_to_pv_dataset(grid, vol, at=at)  
+    
     return vol
