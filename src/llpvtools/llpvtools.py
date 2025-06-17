@@ -3,17 +3,92 @@
 
 import numpy as np
 import pyvista as pv
+from landlab import RasterModelGrid, IcosphereGlobalGrid, NetworkModelGrid
+from landlab.utils.decorators import use_field_name_array_or_value
 
-
-def grid_to_pv(grid):
+def _has_dual(grid):
     """
-    Create a pyVista DataSet from a Landlab grid and associated fields.
+    True if the grid has a dual complement (corners-faces-cells), False otherwise.
+
+    Examples
+    --------
+    >>> from landlab import RasterModelGrid, NetworkModelGrid
+    >>> _has_dual(RasterModelGrid((3, 3)))
+    True
+    >>> _has_dual(NetworkModelGrid(((0, 1), (0,0)), ((1, 0))))
+    False
     """
-    pass # this should be the 'master' function that hands off to other fns depending on grid type, etc.
+    try:
+        _ = grid.number_of_corners
+        return True
+    except AttributeError:
+        return False
 
-# also, there should be at least two meshes: one for nodes, and one for corners
+def grid_to_pv(grid, field_for_node_z=None, field_for_corner_z=None, make3d=False):
+    """
+    Create pyVista DataSet(s) from a Landlab grid and associated fields.
 
-def get_reshaped_xyz(grid, field_for_z, at="node"):
+    Most Landlab grids have dual meshes (nodes-links-patches and corners-faces-cells),
+    and where that's the case, the function returns one PyVista mesh object for each.
+
+    Examples
+    --------
+    >>> from landlab import RasterModelGrid
+    >>> rmg = RasterModelGrid((3, 3))
+    >>> pvm_nodes, pvm_corners = grid_to_pv(rmg)
+    >>> type(pvm_nodes)
+    <class 'pyvista.core.pointset.StructuredGrid'>
+    >>> pvm_nodes.n_points
+    9
+    >>> pvm_corners.n_points
+    4
+    """
+    if field_for_node_z is None:
+        if "topographic__elevation" in grid.at_node.keys():
+            field_for_node_z = "topographic__elevation"
+        else:
+            field_for_node_z = np.zeros(grid.number_of_nodes)
+    if _has_dual(grid):
+        if field_for_corner_z is None:
+            if "topographic__elevation" in grid.at_node.keys():
+                field_for_corner_z = "topographic__elevation"
+            else:
+                field_for_corner_z = np.zeros(grid.number_of_corners)
+
+    if isinstance(grid, RasterModelGrid):
+        if make3d:
+            pass
+        else:
+            pv_mesh_nodes = raster_grid_to_pv2d_struct(grid, field_for_node_z, at="node")
+            pv_mesh_corners = raster_grid_to_pv2d_struct(grid, field_for_corner_z, at="corner")
+    elif isinstance(grid, IcosphereGlobalGrid):
+        pass
+    elif isinstance(grid, NetworkModelGrid):
+        pass
+    else:
+        pass
+
+    return pv_mesh_nodes, pv_mesh_corners
+
+@use_field_name_array_or_value("node")
+def _get_reshaped_node_xyz(grid, vals):
+    nr = grid.number_of_node_rows
+    nc = grid.number_of_node_columns
+    x = grid.x_of_node.reshape((nr, nc))
+    y = grid.y_of_node.reshape((nr, nc))
+    z = vals.reshape((nr, nc))
+    return x, y, z
+
+@use_field_name_array_or_value("corner")
+def _get_reshaped_corner_xyz(grid, vals):
+    nr = grid.number_of_corner_rows
+    nc = grid.number_of_corner_columns
+    x = grid.x_of_corner.reshape((nr, nc))
+    y = grid.y_of_corner.reshape((nr, nc))
+    z = vals.reshape((nr, nc))
+    return x, y, z
+
+def get_reshaped_xyz(grid, field_or_array_for_z, at="node"):
     """
     Return x, y, and z coordinates of nodes or corners reshaped as
     (number of rows, number of columns). Use specified field for z.
@@ -22,8 +97,8 @@ def get_reshaped_xyz(grid, field_for_z, at="node"):
     ----------
     grid : RasterModelGrid
         The grid to be reshaped
-    field_for_z : str
-        Name of the field containing the z coordinate values
+    field_or_array_for_z : str, array, or float
+        Name of the field or array containing the z coordinate values, or constant value
     at : str (optional)
         Name of grid elements: "node" (default) or "corner"
 
@@ -51,17 +126,9 @@ def get_reshaped_xyz(grid, field_for_z, at="node"):
            [ 8,  9, 10, 11]])
     """
     if at=="node":
-        nr = grid.number_of_node_rows
-        nc = grid.number_of_node_columns
-        x = grid.x_of_node.reshape((nr, nc))
-        y = grid.y_of_node.reshape((nr, nc))
-        z = grid.at_node[field_for_z].reshape((nr, nc))
+        x, y, z = _get_reshaped_node_xyz(grid, field_or_array_for_z)
     elif at=="corner":
-        nr = grid.number_of_corner_rows
-        nc = grid.number_of_corner_columns
-        x = grid.x_of_corner.reshape((nr, nc))
-        y = grid.y_of_corner.reshape((nr, nc))
-        z = grid.at_corner[field_for_z].reshape((nr, nc))
+        x, y, z = _get_reshaped_corner_xyz(grid, field_or_array_for_z)
     else:
         raise(ValueError, "'at' must be 'node' or 'corner'")
 
@@ -114,7 +181,7 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
                 vals = np.hstack((vals, base_vals + np.zeros(npts)))
             dataset.point_data[fieldname] = vals
 
-def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
+def raster_grid_to_pv2d_struct(grid, field_or_array_for_z, at="node"):
     """
     Translate a RasterModelGrid into a PyVista 2D StructuredGrid.
     Includes node or corner fields as data arrays.
@@ -123,8 +190,8 @@ def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
     ----------
     grid : RasterModelGrid
         The grid to translate
-    field_for_z : str
-        Name of field to use for z coordinate
+    field_or_array_for_z : str, array, or float
+        Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
 
@@ -146,12 +213,42 @@ def raster_grid_to_pv2d_struct(grid, field_for_z, at="node"):
     >>> struc_grd.dimensions
     (3, 4, 1)
     """
-    x, y, z = get_reshaped_xyz(grid, field_for_z, at)
+    x, y, z = get_reshaped_xyz(grid, field_or_array_for_z, at)
     struc_pv_grid = pv.StructuredGrid(x, y, z)
     add_fields_to_pv_dataset(grid, struc_pv_grid, at=at)
     return struc_pv_grid
 
-def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
+@use_field_name_array_or_value("node")
+def _get_z_node_vals(grid, vals):
+    """
+    Given a Landlab grid and an at-node field name, node-length array, or single value,
+    return a node-length array of values.
+
+    Parameters
+    ----------
+    grid : Landlab grid object (any type)
+        The grid to use
+    vals : str, node-length array, or float
+        The field name, array, or single value to return as a node-length array
+    """
+    return vals
+
+@use_field_name_array_or_value("corner")
+def _get_z_corner_vals(grid, vals):
+    """
+    Given a Landlab grid and an at-corner field name, node-length array, or single value,
+    return a corner-length array of values.
+
+    Parameters
+    ----------
+    grid : Landlab grid object (any type)
+        The grid to use
+    vals : str, corner-length array, or float
+        The field name, array, or single value to return as a corner-length array
+    """
+    return vals
+
+def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", depth=None):
     """
     Create and return a pyVista 3D StructuredGrid. Same as 
     raster_grid_to_pv2d_struct except that the PyVista grid
@@ -165,8 +262,8 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
     ----------
     grid : RasterModelGrid
         The grid to translate
-    field_for_z : str
-        Name of field to use for z coordinate
+    field_or_array_for_z : str, array, or float
+        Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
 
@@ -206,13 +303,13 @@ def raster_grid_to_pv3d_struct(grid, field_for_z, at="node", depth=None):
     if at=="node":
         x = grid.x_of_node
         y = grid.y_of_node
-        z = grid.at_node[field_for_z]
+        z = _get_z_node_vals(grid, field_or_array_for_z)
         nr = grid.number_of_node_rows
         nc = grid.number_of_node_columns
     elif at=="corner":
         x = grid.x_of_corner
         y = grid.y_of_corner
-        z = grid.at_corner[field_for_z]
+        z = _get_z_corner_vals(grid, field_or_array_for_z)
         nr = grid.number_of_corner_rows
         nc = grid.number_of_corner_columns
     else:
