@@ -1,5 +1,10 @@
-# llpvtools: utilities for translating Landlab grids and fields
-# into pyVista data structures for plotting.
+"""
+llpvtools: utilities for translating Landlab grids and fields
+into pyVista data structures for plotting.
+
+Greg Tucker, University of Colorado Boulder, USA.
+Original development: June 2025
+"""
 
 import numpy as np
 import pyvista as pv
@@ -9,7 +14,16 @@ from landlab.utils.decorators import use_field_name_array_or_value
 
 def _has_dual(grid):
     """
-    True if the grid has a dual complement (corners-faces-cells), False otherwise.
+    True if grid has dual complement (corners-faces-cells), False otherwise.
+
+    Parameters
+    ----------
+    grid : Landlab grid object
+        The grid to inspect.
+
+    Returns
+    -------
+    bool : True if grid has corners (vertices of cells) defined
 
     Examples
     --------
@@ -39,6 +53,26 @@ def grid_to_pv(
 
     Most Landlab grids have dual meshes (nodes-links-patches and corners-faces-cells),
     and where that's the case, the function returns one PyVista mesh object for each.
+
+    Parameters
+    ----------
+    grid : Landlab model grid
+        Grid to be translated into PyVista mesh(es)
+    field_for_node_z : str, ndarray, or float (optional)
+        Values for node z coords (default "topographic__elevaton" if exists, or 0)
+    field_for_corner_z : str, ndarray, or float (optional)
+        Values for corner z coords (default "topographic__elevaton" if exists, or 0)
+    make3d : optional
+        Option to make a 3D mesh, with a top and bottom layer (default False)
+    values_for_node_base : str, ndarray, or float (optional)
+        Values for z of lower node layer (default 1/2 a grid width below lowest top z)
+    values_for_corner_base : str, ndarray, or float (optional)
+        Values for z of lower corner layer (default 1/2 a grid width below lowest top z)
+
+    Returns
+    -------
+    PyVista.StructuredGrid, PyVista.StructuredGrid or None
+        A StructuredGrid for nodes, one for corners (or None if no defined corners)
 
     Examples
     --------
@@ -91,6 +125,22 @@ def grid_to_pv(
 
 @use_field_name_array_or_value("node")
 def _get_reshaped_node_xyz(grid, vals):
+    """
+    Return a 2d array containing node (x,y,z) values for a Landlab grid.
+
+    z values are taken from either a named field, an array, or a float.
+
+    Parameters
+    ----------
+    grid : Landlab grid object
+        The grid
+    vals : str, array, or float
+        Field name, array, or constant value for z
+
+    Returns
+    -------
+    array, array, array : x, y, and z values
+    """
     nr = grid.number_of_node_rows
     nc = grid.number_of_node_columns
     x = grid.x_of_node.reshape((nr, nc))
@@ -101,6 +151,22 @@ def _get_reshaped_node_xyz(grid, vals):
 
 @use_field_name_array_or_value("corner")
 def _get_reshaped_corner_xyz(grid, vals):
+    """
+    Return a 2d array containing corner (x,y,z) values for a Landlab grid.
+
+    z values are taken from either a named field, an array, or a float.
+
+    Parameters
+    ----------
+    grid : Landlab grid object
+        The grid (must have defined corners)
+    vals : str, array, or float
+        Field name, array, or constant value for z
+
+    Returns
+    -------
+    array, array, array : x, y, and z values
+    """
     nr = grid.number_of_corner_rows
     nc = grid.number_of_corner_columns
     x = grid.x_of_corner.reshape((nr, nc))
@@ -173,6 +239,10 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
     base_vals : float (optional)
         If 3d, value to use for bottom points (default 0.0)
 
+    Returns
+    -------
+    None
+
     Examples
     --------
     >>> from landlab import RasterModelGrid
@@ -181,7 +251,11 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
     >>> z = rmg.add_field("z", np.arange(9))
     >>> _ = rmg.add_zeros("node_field1", at="node")
     >>> _ = rmg.add_zeros("node_field2", at="node")
-    >>> pvsg = StructuredGrid(rmg.x_of_node.reshape((3, 3)), rmg.y_of_node.reshape((3, 3)), z.reshape((3, 3)))
+    >>> pvsg = StructuredGrid(
+    ...     rmg.x_of_node.reshape((3, 3)),
+    ...     rmg.y_of_node.reshape((3, 3)),
+    ...     z.reshape((3, 3))
+    ... )
     >>> _ = add_fields_to_pv_dataset(rmg, pvsg, z_field="z")
     >>> names = pvsg.array_names.copy()
     >>> names.sort()
@@ -261,8 +335,8 @@ def _get_z_node_vals(grid, vals):
 @use_field_name_array_or_value("corner")
 def _get_z_corner_vals(grid, vals):
     """
-    Given a Landlab grid and an at-corner field name, node-length array, or single value,
-    return a corner-length array of values.
+    Given a Landlab grid and an at-corner field name, node-length array, or single
+    value, return a corner-length array of values.
 
     Parameters
     ----------
@@ -279,6 +353,15 @@ def _set_default_base_z(x, y, z):
     Return a default constant value for the depth of a 3D mesh.
 
     Use the lowest height minus half the widest horizontal dimension.
+
+    Parameters
+    ----------
+    x, y, z : ndarrays
+        Arrays containing the x, y, znd z coordinates of a mesh
+
+    Returns
+    -------
+    float : lowest z minus half the span of x or y (whichever span is bigger)
     """
     return np.amin(z) - max(np.amax(x) - np.amin(x), np.amax(y) - np.amin(y)) / 2
 
@@ -300,7 +383,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
         Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
-    base_vals : str, array, or float (optional; default = lowest point on top minus 1/2 max width)
+    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
         Field name, array, or single value for the z of the bottom mesh layer.
 
     Returns
@@ -313,7 +396,8 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
     --------
     >>> from landlab import RasterModelGrid
     >>> grid = RasterModelGrid((4, 5), 10.0)
-    >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node", depth=20.0)
+    >>> z = grid.add_field(
+    ...     "z", np.arange(grid.number_of_nodes), at="node", depth=20.0)
     >>> raster_grid_to_pv3d_struct(grid, "z")
     StructuredGrid (...)
       N Cells:      12
@@ -324,7 +408,8 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
       Dimensions:   4, 5, 2
       N Arrays:     1
 
-    >>> zc = grid.add_field("zc", np.arange(grid.number_of_corners), at="corner")
+    >>> zc = grid.add_field(
+    ...     "zc", np.arange(grid.number_of_corners), at="corner")
     >>> raster_grid_to_pv3d_struct(grid, "zc", at="corner")
     StructuredGrid (...)
       N Cells:      6
