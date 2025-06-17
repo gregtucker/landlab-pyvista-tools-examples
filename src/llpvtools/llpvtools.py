@@ -6,6 +6,7 @@ import pyvista as pv
 from landlab import RasterModelGrid, IcosphereGlobalGrid, NetworkModelGrid
 from landlab.utils.decorators import use_field_name_array_or_value
 
+
 def _has_dual(grid):
     """
     True if the grid has a dual complement (corners-faces-cells), False otherwise.
@@ -24,7 +25,15 @@ def _has_dual(grid):
     except AttributeError:
         return False
 
-def grid_to_pv(grid, field_for_node_z=None, field_for_corner_z=None, make3d=False):
+
+def grid_to_pv(
+    grid,
+    field_for_node_z=None,
+    field_for_corner_z=None,
+    make3d=False,
+    values_for_node_base=None,
+    values_for_corner_base=None,
+):
     """
     Create pyVista DataSet(s) from a Landlab grid and associated fields.
 
@@ -47,20 +56,29 @@ def grid_to_pv(grid, field_for_node_z=None, field_for_corner_z=None, make3d=Fals
         if "topographic__elevation" in grid.at_node.keys():
             field_for_node_z = "topographic__elevation"
         else:
-            field_for_node_z = np.zeros(grid.number_of_nodes)
+            field_for_node_z = 0.0
     if _has_dual(grid):
         if field_for_corner_z is None:
             if "topographic__elevation" in grid.at_node.keys():
                 field_for_corner_z = "topographic__elevation"
             else:
-                field_for_corner_z = np.zeros(grid.number_of_corners)
+                field_for_corner_z = 0.0
 
     if isinstance(grid, RasterModelGrid):
         if make3d:
-            pass
+            pv_mesh_nodes = raster_grid_to_pv3d_struct(
+                grid, field_for_node_z, at="node", base_vals=values_for_node_base
+            )
+            pv_mesh_corners = raster_grid_to_pv3d_struct(
+                grid, field_for_corner_z, at="corner", base_vals=values_for_corner_base
+            )
         else:
-            pv_mesh_nodes = raster_grid_to_pv2d_struct(grid, field_for_node_z, at="node")
-            pv_mesh_corners = raster_grid_to_pv2d_struct(grid, field_for_corner_z, at="corner")
+            pv_mesh_nodes = raster_grid_to_pv2d_struct(
+                grid, field_for_node_z, at="node"
+            )
+            pv_mesh_corners = raster_grid_to_pv2d_struct(
+                grid, field_for_corner_z, at="corner"
+            )
     elif isinstance(grid, IcosphereGlobalGrid):
         pass
     elif isinstance(grid, NetworkModelGrid):
@@ -69,6 +87,7 @@ def grid_to_pv(grid, field_for_node_z=None, field_for_corner_z=None, make3d=Fals
         pass
 
     return pv_mesh_nodes, pv_mesh_corners
+
 
 @use_field_name_array_or_value("node")
 def _get_reshaped_node_xyz(grid, vals):
@@ -79,6 +98,7 @@ def _get_reshaped_node_xyz(grid, vals):
     z = vals.reshape((nr, nc))
     return x, y, z
 
+
 @use_field_name_array_or_value("corner")
 def _get_reshaped_corner_xyz(grid, vals):
     nr = grid.number_of_corner_rows
@@ -87,6 +107,7 @@ def _get_reshaped_corner_xyz(grid, vals):
     y = grid.y_of_corner.reshape((nr, nc))
     z = vals.reshape((nr, nc))
     return x, y, z
+
 
 def get_reshaped_xyz(grid, field_or_array_for_z, at="node"):
     """
@@ -125,14 +146,15 @@ def get_reshaped_xyz(grid, field_or_array_for_z, at="node"):
            [ 4,  5,  6,  7],
            [ 8,  9, 10, 11]])
     """
-    if at=="node":
+    if at == "node":
         x, y, z = _get_reshaped_node_xyz(grid, field_or_array_for_z)
-    elif at=="corner":
+    elif at == "corner":
         x, y, z = _get_reshaped_corner_xyz(grid, field_or_array_for_z)
     else:
-        raise(ValueError, "'at' must be 'node' or 'corner'")
+        raise (ValueError, "'at' must be 'node' or 'corner'")
 
     return x, y, z
+
 
 def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0):
     """
@@ -167,19 +189,20 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
     ['node_field1', 'node_field2']
     """
     is3d = False
-    if at=="node":
+    if at == "node":
         npts = grid.number_of_nodes
     else:
         npts = grid.number_of_corners
-    if dataset.n_points==(2 * npts):
+    if dataset.n_points == (2 * npts):
         is3d = True
     for field in grid.fields(include="at_" + at + "*"):
-        fieldname = field[field.find(":") + 1:]
+        fieldname = field[field.find(":") + 1 :]
         if fieldname != z_field:
             vals = grid.field_values(fieldname, at=at)
             if is3d:
                 vals = np.hstack((vals, base_vals + np.zeros(npts)))
             dataset.point_data[fieldname] = vals
+
 
 def raster_grid_to_pv2d_struct(grid, field_or_array_for_z, at="node"):
     """
@@ -218,6 +241,7 @@ def raster_grid_to_pv2d_struct(grid, field_or_array_for_z, at="node"):
     add_fields_to_pv_dataset(grid, struc_pv_grid, at=at)
     return struc_pv_grid
 
+
 @use_field_name_array_or_value("node")
 def _get_z_node_vals(grid, vals):
     """
@@ -232,6 +256,7 @@ def _get_z_node_vals(grid, vals):
         The field name, array, or single value to return as a node-length array
     """
     return vals
+
 
 @use_field_name_array_or_value("corner")
 def _get_z_corner_vals(grid, vals):
@@ -248,15 +273,24 @@ def _get_z_corner_vals(grid, vals):
     """
     return vals
 
-def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", depth=None):
+
+def _set_default_base_z(x, y, z):
     """
-    Create and return a pyVista 3D StructuredGrid. Same as 
+    Return a default constant value for the depth of a 3D mesh.
+
+    Use the lowest height minus half the widest horizontal dimension.
+    """
+    return np.amin(z) - max(np.amax(x) - np.amin(x), np.amax(y) - np.amin(y)) / 2
+
+
+def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=None):
+    """
+    Create and return a pyVista 3D StructuredGrid. Same as
     raster_grid_to_pv2d_struct except that the PyVista grid
     is 3D, with two layers: one the z-coordinate of the Landlab
-    grid, and the other a flat base at either a user-specified
-    depth or a default value.
-
-    ... TODO enable field for base...
+    grid, and the other either a flat surface at a constant z,
+    a specifies array of values for the height of the bottom
+    layer, or an existing field.
 
     Parameters
     ----------
@@ -266,6 +300,8 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", depth=None
         Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
+    base_vals : str, array, or float (optional; default = lowest point on top minus 1/2 max width)
+        Field name, array, or single value for the z of the bottom mesh layer.
 
     Returns
     -------
@@ -300,36 +336,37 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", depth=None
       N Arrays:     1
     """
 
-    if at=="node":
+    if at == "node":
         x = grid.x_of_node
         y = grid.y_of_node
         z = _get_z_node_vals(grid, field_or_array_for_z)
+        if base_vals is None:
+            z_base = _set_default_base_z(x, y, z)
+        else:
+            z_base = _get_z_node_vals(grid, base_vals)
         nr = grid.number_of_node_rows
         nc = grid.number_of_node_columns
-    elif at=="corner":
+    elif at == "corner":
         x = grid.x_of_corner
         y = grid.y_of_corner
         z = _get_z_corner_vals(grid, field_or_array_for_z)
+        if base_vals is None:
+            z_base = _set_default_base_z(x, y, z)
+        else:
+            z_base = _get_z_corner_vals(grid, base_vals)
         nr = grid.number_of_corner_rows
         nc = grid.number_of_corner_columns
     else:
-        raise(ValueError, "'at' must be 'node' or 'corner'")
-    
-    # default bottom of grid is flat surface at depth below lowest point
-    # equal to half the widest grid extent
-    if depth is None:
-        depth = max(np.amax(x) - np.amin(x),
-                    np.amax(y) - np.amin(y)) / 2
-        depth -= np.amin(z)
+        raise (ValueError, "'at' must be 'node' or 'corner'")
 
     top = np.column_stack((x, y, z))
     bottom = top.copy()
-    bottom[:,2] = -depth
+    bottom[:, 2] = z_base
 
     vol = pv.StructuredGrid()
     vol.points = np.vstack((top, bottom))
     vol.dimensions = [nr, nc, 2]
 
-    add_fields_to_pv_dataset(grid, vol, at=at)  
-    
+    add_fields_to_pv_dataset(grid, vol, at=at)
+
     return vol
