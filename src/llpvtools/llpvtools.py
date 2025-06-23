@@ -114,13 +114,177 @@ def grid_to_pv(
                 grid, field_for_corner_z, at="corner"
             )
     elif isinstance(grid, IcosphereGlobalGrid):
-        pass
+        pv_mesh_nodes = non_raster_grid_to_pv_unstructured(
+            grid,
+            field_or_array_for_z=grid.z_of_node,
+            at="node",
+            is3d=False,
+        )
+        pv_mesh_corners = non_raster_grid_to_pv_unstructured(
+            grid,
+            field_or_array_for_z=grid.z_of_corner,
+            at="corner",
+            is3d=False,
+        )
     elif isinstance(grid, NetworkModelGrid):
-        pass
+        raise NotImplementedError(
+            "Grid type " + str(type(grid)) + " is not currently handled."
+        )
     else:
-        pass
+        pv_mesh_nodes = non_raster_grid_to_pv_unstructured(
+            grid,
+            field_or_array_for_z=field_for_node_z,
+            base_vals=values_for_node_base,
+            at="node",
+            is3d=make3d,
+        )
+        pv_mesh_corners = non_raster_grid_to_pv_unstructured(
+            grid,
+            field_or_array_for_z=field_for_corner_z,
+            base_vals=values_for_corner_base,
+            at="corner",
+            is3d=make3d,
+        )
 
     return pv_mesh_nodes, pv_mesh_corners
+
+
+def _get_pv_cell_type(number_of_vertices):
+    """
+    Return the PyVista CellType for the given number of vertices.
+    """
+    assert number_of_vertices > 2
+    if number_of_vertices == 3:
+        the_type = pv.CellType.TRIANGLE
+    elif number_of_vertices == 4:
+        the_type = pv.CellType.QUAD
+    else:
+        the_type = pv.CellType.POLYGON
+    return the_type
+
+
+def get_polygon_array_and_types(poly_verts):
+    """
+
+    Examples
+    --------
+    >>> from landlab import RadialModelGrid
+    >>> grid = RadialModelGrid(n_rings=2, nodes_in_first_ring=5)
+    >>> parray, ptypes = get_polygon_array_and_types(grid.nodes_at_patch)
+    >>> parray[:8]
+    array([3, 4, 0, 1, 3, 3, 4, 1])
+    >>> ptypes[0]
+    <CellType.TRIANGLE: 5>
+    >>> parray, ptypes = get_polygon_array_and_types(grid.corners_at_cell)
+    >>> parray[7:14]
+    array([ 6,  5, 10,  9,  6,  1,  3])
+    >>> parray[14:20]
+    array([ 5, 11, 14, 10,  5,  8])
+    >>> ptypes[0]
+    <CellType.POLYGON: 7>
+    """
+    n_verts = np.count_nonzero(poly_verts + 1, axis=1)
+    array_len = np.sum(n_verts) + len(poly_verts)
+    poly_array = np.zeros(array_len, dtype=int)
+    type_array = np.zeros(len(poly_verts), dtype=pv.CellType)
+    index = 0
+    for poly in range(len(poly_verts)):
+        poly_array[index] = n_verts[poly]
+        index += 1
+        these_listed_verts = poly_verts[poly]
+        these_actual_verts = these_listed_verts[these_listed_verts >= 0]
+        nv = len(these_actual_verts)
+        poly_array[index : index + nv] = these_actual_verts
+        index += nv
+        type_array[poly] = _get_pv_cell_type(nv)
+    return poly_array, type_array
+
+
+def non_raster_grid_to_pv_unstructured(
+    grid, field_or_array_for_z, at, base_vals=None, is3d=False
+):
+    """
+    Create and return a pyVista UntructuredGrid. Used for non-raster
+    grid types such as HexModelGrid, RadialModelGrid, and IcosphereGlobalGrid.
+
+    Parameters
+    ----------
+    #UPDATE
+    grid : RasterModelGrid
+        The grid to translate
+    field_or_array_for_z : str, array, or float
+        Name of field, or array, or single value to use for z coordinate
+    at : str (optional)
+        Which points to use: "node" (default) or "corner"
+    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
+        Field name, array, or single value for the z of the bottom mesh layer.
+
+    Returns #UPDATE
+    -------
+    PyVista StructuredGrid object of dimensions (nr, nc, 2),
+    where nr and nc are the number of node (or corner) rows
+    and columns, respectively, in the Landlab grid.
+
+    Examples #UPDATE
+    --------
+    >>> from landlab import RadialModelGrid
+    >>> grid = RadialModelGrid(2, 5)
+    >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node")
+    >>> non_raster_grid_to_pv_unstructured(grid, "z", at="node")
+    UnstructuredGrid (...)
+      N Cells:    20
+      N Points:   16
+      X Bounds:   -2.000e+00, 2.000e+00
+      Y Bounds:   -1.902e+00, 1.902e+00
+      Z Bounds:   0.000e+00, 1.500e+01
+      N Arrays:   1
+
+    >>> zc = grid.add_field(
+    ...     "zc", np.arange(grid.number_of_corners), at="corner")
+    >>> non_raster_grid_to_pv_unstructured(grid, "zc", at="corner")
+    UnstructuredGrid (...)
+      N Cells:    6
+      N Points:   20
+      X Bounds:   -1.500e+00, 1.500e+00
+      Y Bounds:   -1.577e+00, 1.577e+00
+      Z Bounds:   0.000e+00, 1.900e+01
+      N Arrays:   1
+
+    """
+    if at == "node":
+        x = grid.x_of_node
+        y = grid.y_of_node
+        z = _get_z_node_vals(grid, field_or_array_for_z)
+        poly_verts = grid.nodes_at_patch
+
+    elif at == "corner":
+        x = grid.x_of_corner
+        y = grid.y_of_corner
+        z = _get_z_corner_vals(grid, field_or_array_for_z)
+        poly_verts = grid.corners_at_cell
+    else:
+        raise (ValueError, "'at' must be 'node' or 'corner'")
+
+    pts = np.column_stack((x, y, z))
+    poly_array, poly_types = get_polygon_array_and_types(poly_verts)
+
+    if is3d:
+        # UPDATE
+        if base_vals is None:
+            z_base = _set_default_base_z(x, y, z)
+        elif at == "node":
+            z_base = _get_z_node_vals(grid, base_vals)
+        else:
+            z_base = _get_z_corner_vals(grid, base_vals)
+        bottom = pts.copy()
+        bottom[:, 2] = z_base
+        pts = np.vstack((pts, bottom))
+
+    ug = pv.UnstructuredGrid(poly_array, poly_types, pts)
+
+    add_fields_to_pv_dataset(grid, ug, at=at)
+
+    return ug
 
 
 @use_field_name_array_or_value("node")
@@ -265,8 +429,10 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
     is3d = False
     if at == "node":
         npts = grid.number_of_nodes
+        polyname = "patch"
     else:
         npts = grid.number_of_corners
+        polyname = "cell"
     if dataset.n_points == (2 * npts):
         is3d = True
     for field in grid.fields(include="at_" + at + "*"):
@@ -276,6 +442,10 @@ def add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0
             if is3d:
                 vals = np.hstack((vals, base_vals + np.zeros(npts)))
             dataset.point_data[fieldname] = vals
+    for field in grid.fields(include="at_" + polyname + "*"):
+        fieldname = field[field.find(":") + 1 :]
+        vals = grid.field_values(fieldname, at=polyname)
+        dataset.cell_data[fieldname] = vals
 
 
 def raster_grid_to_pv2d_struct(grid, field_or_array_for_z, at="node"):
