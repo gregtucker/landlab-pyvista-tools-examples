@@ -2,6 +2,9 @@
 llpvtools: utilities for translating Landlab grids and fields
 into pyVista data structures for plotting.
 
+The main function is grid_to_pv(). Usage and examples are shown in its
+header docstring below.
+
 Greg Tucker, University of Colorado Boulder, USA.
 Original development: June 2025
 """
