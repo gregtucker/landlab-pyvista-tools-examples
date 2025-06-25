@@ -57,7 +57,9 @@ def grid_to_pv(
     ...     "z", np.arange(grid.number_of_nodes), at="node")
     >>> zc = grid.add_field(
     ...     "zc", np.arange(grid.number_of_corners), at="corner")
-    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(grid, field_for_node_z="z", field_for_corner_z=zc)
+    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(
+    ...     grid, field_for_node_z="z", field_for_corner_z=zc
+    ... )
     >>> pv_sg_node
     StructuredGrid (...)
       N Cells:      12
@@ -80,7 +82,9 @@ def grid_to_pv(
 
     Raster grid translated to 3D:
 
-    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(grid, field_for_node_z="z", make3d=True, values_for_node_base=-5.0)
+    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(
+    ...     grid, field_for_node_z="z", make3d=True, values_for_node_base=-5.0
+    ... )
     >>> pv_sg_node
     StructuredGrid (...)
       N Cells:      12
@@ -118,7 +122,9 @@ def grid_to_pv(
 
     Unstructured as 3D:
 
-    >>> pv_ug_n, pv_ug_c = grid_to_pv(grid, field_for_node_z=z, field_for_corner_z=zc, make3d=True)
+    >>> pv_ug_n, pv_ug_c = grid_to_pv(
+    ...     grid, field_for_node_z=z, field_for_corner_z=zc, make3d=True
+    ... )
     >>> pv_ug_n
     UnstructuredGrid (...)
       N Cells:    20
@@ -376,7 +382,7 @@ def non_raster_grid_to_pv_unstructured(
     at : str
         Which Landlab mesh type to translate: either "node" or "corner"
     base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
-        Field name, array, or single value for the z of the bottom mesh layer (if is3d==True)
+        Field name, array, or single value for z of bottom mesh layer (if is3d==True)
     is3d : book (optional)
         If True, makes a 3D mesh with base_vals used for z at the bottom (default False)
 
@@ -409,7 +415,9 @@ def non_raster_grid_to_pv_unstructured(
             x = np.hstack((x, x))
             y = np.hstack((y, y))
             z = np.hstack((z, _get_z_node_vals(grid, base_vals)))
-            pvcell_verts = _add_vertices_to_base_for_3d(pvcell_verts, grid.number_of_nodes)
+            pvcell_verts = _add_vertices_to_base_for_3d(
+                pvcell_verts, grid.number_of_nodes
+            )
     elif at == "corner":
         x = grid.x_of_corner
         y = grid.y_of_corner
@@ -421,7 +429,9 @@ def non_raster_grid_to_pv_unstructured(
             x = np.hstack((x, x))
             y = np.hstack((y, y))
             z = np.hstack((z, _get_z_corner_vals(grid, base_vals)))
-            pvcell_verts = _add_vertices_to_base_for_3d(pvcell_verts, grid.number_of_corners)
+            pvcell_verts = _add_vertices_to_base_for_3d(
+                pvcell_verts, grid.number_of_corners
+            )
     else:
         raise (ValueError, "'at' must be 'node' or 'corner'")
 
@@ -439,7 +449,7 @@ def network_grid_to_pv_unstructured(grid, field_or_array_for_z):
     """
     Translate a Landlab NetworkModelGrid to a PyVista unstructured grid made of
     line segments.
-    
+
     Examples
     --------
     >>> from landlab import NetworkModelGrid
@@ -462,7 +472,9 @@ def network_grid_to_pv_unstructured(grid, field_or_array_for_z):
     y = grid.y_of_node
     z = _get_z_node_vals(grid, field_or_array_for_z)
     points = np.column_stack((x, y, z))
-    pvcell_array = np.column_stack((2 + np.zeros(grid.number_of_links, dtype=int), grid.nodes_at_link)).flatten()
+    pvcell_array = np.column_stack(
+        (2 + np.zeros(grid.number_of_links, dtype=int), grid.nodes_at_link)
+    ).flatten()
     pvcell_types = grid.number_of_links * [pv.CellType.LINE]
     ug = pv.UnstructuredGrid(pvcell_array, pvcell_types, points)
     for field in grid.at_node.keys():
@@ -729,7 +741,7 @@ def _add_vertices_to_base_for_3d(top_verts, n_pts):
     Landlab grid, the grid attribute nodes_at_patch will be a (# of nodes, 3)
     array containing the IDs of the nodes in each triagular patch. This function
     creates a version of the original array in which there are now 6 instead of
-    3 columns, representing the vertices of triangles at the "base" of a 
+    3 columns, representing the vertices of triangles at the "base" of a
     triangular prism. Suppose there are 16 nodes in the grid and the IDs of
     nodes in the first triangular patch are [4, 0, 1]. This function will return
     a 16 x 6 array, in which the row for the first patch is [4, 0, 1, 20, 16, 17].
@@ -749,7 +761,7 @@ def _add_vertices_to_base_for_3d(top_verts, n_pts):
     a pentagonal prism, with the original cell representing the top, and a new
     pentagon with the same (x, y) coordinates representing the bottom, for a
     total of 10 valid vertex IDs (instead of 12).
-    
+
     Parameters
     ----------
     top_verts : 2d array of int
@@ -759,7 +771,7 @@ def _add_vertices_to_base_for_3d(top_verts, n_pts):
 
     Returns
     -------
-    2d array : array containing, on each row, the IDs of vertices, including "top" and "base"
+    2d array : rows hold the IDs of vertices, including "top" and "base"
 
     Examples
     --------
@@ -780,9 +792,10 @@ def _add_vertices_to_base_for_3d(top_verts, n_pts):
 
 def _get_pvcell_array_and_types(pvcell_verts, is3d):
     """
-    Create and return two data structures that PyVista needs to make an UnstructuredGrid:
-    a 1d array of cell vertices, with each entry starting with the number of vertices in
-    the cell; and an array containing the VTK/PyVista CellType code for each cell.
+    Create and return two data structures that PyVista needs to make an
+    UnstructuredGrid:a 1d array of cell vertices, with each entry starting with
+    the number of vertices in the cell; and an array containing the VTK/PyVista
+    CellType code for each cell.
 
     Parameters
     ----------
@@ -817,7 +830,9 @@ def _get_pvcell_array_and_types(pvcell_verts, is3d):
 
     The following example is 3D: cells are turned into hexagonal prisms:
 
-    >>> verts = _add_vertices_to_base_for_3d(grid.corners_at_cell, grid.number_of_corners)
+    >>> verts = _add_vertices_to_base_for_3d(
+    ...     grid.corners_at_cell, grid.number_of_corners
+    ... )
     >>> parray, ptypes = _get_pvcell_array_and_types(verts, is3d=True)
     >>> parray[:13]
     array([12,  4,  8,  5,  3,  0,  2, 24, 28, 25, 23, 20, 22])
@@ -847,15 +862,15 @@ def _get_pv_cell_type(number_of_vertices, is3d):
     The logic here is as follows:
         - The object is either a polygon (is3d==False) or a polyhedron (is3d==True)
         - Anything 2D with >4 vertices is a PyVista POLYGON
-        - If it's 3D, then we assume it's a "columnar" polyhedron, i.e., with the same number
-          of vertices on "top" and "bottom", and quadrilaterals on the "sides" (like a prism
-          standing on one end)
-        - If we're mapping to 3D, then the relationship between the Landlab polygon shape and
-          the 3D PyVista equivalent is:
-          - triangle => WEDGE (polyhedron with two triangular and three quadrilateral faces)
-          - quad => HEXAHEDRON (polyhedron with six quadrilateral faces)
-          - 5-sided => PENTAGONAL_PRISM (polyhedron with 2 pentagonal and 5 quadrilateral faces)
-          - 6-sided => HEXAGONAL_PRISM (polyhedron with 2 hexagonal and 5 quadrilateral faces)
+        - If it's 3D, then we assume it's a "columnar" polyhedron, i.e., same number
+          of vertices on "top" and "bottom", and quadrilaterals on the "sides"
+          (like a prism standing on one end)
+        - If we're mapping to 3D, then the relationship between the Landlab polygon
+        shape and the 3D PyVista equivalent is:
+          - triangle = WEDGE (polyhedron: 2 triangular and 3 quadrilateral faces)
+          - quad = HEXAHEDRON (polyhedron: 6 quadrilateral faces)
+          - 5-sided = PENTAGONAL_PRISM (polyhedron: 2 pentagonal, 5 quadrilateral faces)
+          - 6-sided = HEXAGONAL_PRISM (polyhedron: 2 hexagonal, 5 quadrilateral faces)
           - 7 or more sides: no 3D mapping available; throws an exception
 
     Parameters
@@ -887,9 +902,9 @@ def _get_pv_cell_type(number_of_vertices, is3d):
         the_type = pv.CellType.HEXAGONAL_PRISM
     else:
         raise TypeError(
-            str(number_of_vertices) + " " +
-            "Cannot make a 3D PyVista object when cells or patches have more than 6 points."
-            + "\n Try using the 2D option instead."
+            str(number_of_vertices)
+            + " "
+            + "Cannot make a 3D PyVista object when cells or patches have\n"
+            + "more than 6 points. Try using the 2D option instead."
         )
     return the_type
-
