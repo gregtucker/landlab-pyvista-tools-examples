@@ -99,9 +99,8 @@ def grid_to_pv(
             is3d=False,
         )
     elif isinstance(grid, NetworkModelGrid):
-        raise NotImplementedError(
-            "Grid type " + str(type(grid)) + " is not currently handled."
-        )
+        pv_mesh_nodes = network_grid_to_pv_unstructured(grid, field_for_node_z)
+        pv_mesh_corners = None
     else:
         pv_mesh_nodes = non_raster_grid_to_pv_unstructured(
             grid,
@@ -342,6 +341,48 @@ def non_raster_grid_to_pv_unstructured(
 
     _add_fields_to_pv_dataset(grid, ug, at=at)
 
+    return ug
+
+
+def network_grid_to_pv_unstructured(grid, field_or_array_for_z):
+    """
+    Translate a Landlab NetworkModelGrid to a PyVista unstructured grid made of
+    line segments.
+    
+    Examples
+    --------
+    >>> from landlab import NetworkModelGrid
+    >>> y_of_node = (0, 1, 2, 2)
+    >>> x_of_node = (0, 0, -1, 1)
+    >>> nodes_at_link = ((1, 0), (2, 1), (3, 1))
+    >>> nmg = NetworkModelGrid((y_of_node, x_of_node), nodes_at_link)
+    >>> z = nmg.add_field("example_node_data", 0.1 * np.arange(4), at="node")
+    >>> _ = nmg.add_field("example_link_data", np.arange(3), at="link")
+    >>> pvug = network_grid_to_pv_unstructured(nmg, z)
+    >>> pvug
+    UnstructuredGrid (...)
+      N Cells:    3
+      N Points:   4
+      X Bounds:   -1.000e+00, 1.000e+00
+      Y Bounds:   0.000e+00, 2.000e+00
+      Z Bounds:   0.000e+00, 3.000e-01
+      N Arrays:   2
+    >>> pvug.point_data["example_node_data"]
+    pyvista_ndarray([0. , 0.1, 0.2, 0.3])
+    >>> pvug.cell_data["example_link_data"]
+    pyvista_ndarray([0, 1, 2])
+    """
+    x = grid.x_of_node
+    y = grid.y_of_node
+    z = _get_z_node_vals(grid, field_or_array_for_z)
+    points = np.column_stack((x, y, z))
+    pvcell_array = np.column_stack((2 + np.zeros(grid.number_of_links, dtype=int), grid.nodes_at_link)).flatten()
+    pvcell_types = grid.number_of_links * [pv.CellType.LINE]
+    ug = pv.UnstructuredGrid(pvcell_array, pvcell_types, points)
+    for field in grid.at_node.keys():
+        ug.point_data[field] = grid.at_node[field]
+    for field in grid.at_link.keys():
+        ug.cell_data[field] = grid.at_link[field]
     return ug
 
 
