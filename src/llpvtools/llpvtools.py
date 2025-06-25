@@ -48,15 +48,138 @@ def grid_to_pv(
 
     Examples
     --------
+
+    Raster grid (note alternative possible usage for node and corner z-coordinates):
+
     >>> from landlab import RasterModelGrid
-    >>> rmg = RasterModelGrid((3, 3))
-    >>> pvm_nodes, pvm_corners = grid_to_pv(rmg)
-    >>> type(pvm_nodes)
-    <class 'pyvista.core.pointset.StructuredGrid'>
-    >>> pvm_nodes.n_points
-    9
-    >>> pvm_corners.n_points
-    4
+    >>> grid = RasterModelGrid((4, 5), 10.0)
+    >>> z = grid.add_field(
+    ...     "z", np.arange(grid.number_of_nodes), at="node")
+    >>> zc = grid.add_field(
+    ...     "zc", np.arange(grid.number_of_corners), at="corner")
+    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(grid, field_for_node_z="z", field_for_corner_z=zc)
+    >>> pv_sg_node
+    StructuredGrid (...)
+      N Cells:      12
+      N Points:     20
+      X Bounds:     0.000e+00, 4.000e+01
+      Y Bounds:     0.000e+00, 3.000e+01
+      Z Bounds:     0.000e+00, 1.900e+01
+      Dimensions:   4, 5, 1
+      N Arrays:     1
+
+    >>> pv_sg_cnr
+    StructuredGrid (...)
+      N Cells:      6
+      N Points:     12
+      X Bounds:     5.000e+00, 3.500e+01
+      Y Bounds:     5.000e+00, 2.500e+01
+      Z Bounds:     0.000e+00, 1.100e+01
+      Dimensions:   3, 4, 1
+      N Arrays:     1
+
+    Raster grid translated to 3D:
+
+    >>> pv_sg_node, pv_sg_cnr = grid_to_pv(grid, field_for_node_z="z", make3d=True, values_for_node_base=-5.0)
+    >>> pv_sg_node
+    StructuredGrid (...)
+      N Cells:      12
+      N Points:     40
+      X Bounds:     0.000e+00, 4.000e+01
+      Y Bounds:     0.000e+00, 3.000e+01
+      Z Bounds:     -5.000e+00, 1.900e+01
+      Dimensions:   4, 5, 2
+      N Arrays:     1
+
+    Unstructured grid examples:
+
+    >>> from landlab import RadialModelGrid
+    >>> grid = RadialModelGrid(n_rings=2, nodes_in_first_ring=5)
+    >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node")
+    >>> zc = grid.add_field(
+    ...     "zc", np.arange(grid.number_of_corners), at="corner")
+    >>> pv_ug_n, pv_ug_c = grid_to_pv(grid, field_for_node_z=z, field_for_corner_z=zc)
+    >>> pv_ug_n
+    UnstructuredGrid (...)
+      N Cells:    20
+      N Points:   16
+      X Bounds:   -2.000e+00, 2.000e+00
+      Y Bounds:   -1.902e+00, 1.902e+00
+      Z Bounds:   0.000e+00, 1.500e+01
+      N Arrays:   1
+    >>> pv_ug_c
+    UnstructuredGrid (...)
+      N Cells:    6
+      N Points:   20
+      X Bounds:   -1.500e+00, 1.500e+00
+      Y Bounds:   -1.577e+00, 1.577e+00
+      Z Bounds:   0.000e+00, 1.900e+01
+      N Arrays:   1
+
+    Unstructured as 3D:
+
+    >>> pv_ug_n, pv_ug_c = grid_to_pv(grid, field_for_node_z=z, field_for_corner_z=zc, make3d=True)
+    >>> pv_ug_n
+    UnstructuredGrid (...)
+      N Cells:    20
+      N Points:   32
+      X Bounds:   -2.000e+00, 2.000e+00
+      Y Bounds:   -1.902e+00, 1.902e+00
+      Z Bounds:   -2.000e+00, 1.500e+01
+      N Arrays:   1
+    >>> pv_ug_c
+    UnstructuredGrid (...)
+      N Cells:    6
+      N Points:   40
+      X Bounds:   -1.500e+00, 1.500e+00
+      Y Bounds:   -1.577e+00, 1.577e+00
+      Z Bounds:   -1.577e+00, 1.900e+01
+      N Arrays:   1
+
+    NetworkModelGrid example:
+
+    >>> from landlab import NetworkModelGrid
+    >>> y_of_node = (0, 1, 2, 2)
+    >>> x_of_node = (0, 0, -1, 1)
+    >>> nodes_at_link = ((1, 0), (2, 1), (3, 1))
+    >>> nmg = NetworkModelGrid((y_of_node, x_of_node), nodes_at_link)
+    >>> z = nmg.add_field("example_node_data", 0.1 * np.arange(4), at="node")
+    >>> _ = nmg.add_field("example_link_data", np.arange(3), at="link")
+    >>> pvug = network_grid_to_pv_unstructured(nmg, z)
+    >>> pvug
+    UnstructuredGrid (...)
+      N Cells:    3
+      N Points:   4
+      X Bounds:   -1.000e+00, 1.000e+00
+      Y Bounds:   0.000e+00, 2.000e+00
+      Z Bounds:   0.000e+00, 3.000e-01
+      N Arrays:   2
+    >>> pvug.point_data["example_node_data"]
+    pyvista_ndarray([0. , 0.1, 0.2, 0.3])
+    >>> pvug.cell_data["example_link_data"]
+    pyvista_ndarray([0, 1, 2])
+
+    IcoSphereGlobalGrid example:
+
+    >>> from landlab import IcosphereGlobalGrid
+    >>> ico = IcosphereGlobalGrid()
+    >>> pv_ug_n, pv_ug_c = grid_to_pv(ico)
+    >>> pv_ug_n
+    UnstructuredGrid (...)
+      N Cells:    20
+      N Points:   12
+      X Bounds:   -8.507e-01, 8.507e-01
+      Y Bounds:   -8.507e-01, 8.507e-01
+      Z Bounds:   -8.507e-01, 8.507e-01
+      N Arrays:   0
+    >>> pv_ug_c
+    UnstructuredGrid (...)
+      N Cells:    12
+      N Points:   20
+      X Bounds:   -9.342e-01, 9.342e-01
+      Y Bounds:   -9.342e-01, 9.342e-01
+      Z Bounds:   -9.342e-01, 9.342e-01
+      N Arrays:   0
     """
     if field_for_node_z is None:
         if "topographic__elevation" in grid.at_node.keys():
@@ -152,7 +275,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
     >>> grid = RasterModelGrid((4, 5), 10.0)
     >>> z = grid.add_field(
     ...     "z", np.arange(grid.number_of_nodes), at="node", depth=20.0)
-    >>> raster_grid_to_pv3d_struct(grid, "z")
+    >>> raster_grid_to_pv3d_struct(grid, "z", at="node")
     StructuredGrid (...)
       N Cells:      12
       N Points:     40
@@ -160,18 +283,6 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
       Y Bounds:     0.000e+00, 3.000e+01
       Z Bounds:     -2.000e+01, 1.900e+01
       Dimensions:   4, 5, 2
-      N Arrays:     1
-
-    >>> zc = grid.add_field(
-    ...     "zc", np.arange(grid.number_of_corners), at="corner")
-    >>> raster_grid_to_pv3d_struct(grid, "zc", at="corner")
-    StructuredGrid (...)
-      N Cells:      6
-      N Points:     24
-      X Bounds:     5.000e+00, 3.500e+01
-      Y Bounds:     5.000e+00, 2.500e+01
-      Z Bounds:     -1.500e+01, 1.100e+01
-      Dimensions:   3, 4, 2
       N Arrays:     1
     """
 
@@ -278,26 +389,6 @@ def non_raster_grid_to_pv_unstructured(
     >>> from landlab import RadialModelGrid
     >>> grid = RadialModelGrid(n_rings=2, nodes_in_first_ring=5)
     >>> z = grid.add_field("z", np.arange(grid.number_of_nodes), at="node")
-    >>> non_raster_grid_to_pv_unstructured(grid, "z", at="node")
-    UnstructuredGrid (...)
-      N Cells:    20
-      N Points:   16
-      X Bounds:   -2.000e+00, 2.000e+00
-      Y Bounds:   -1.902e+00, 1.902e+00
-      Z Bounds:   0.000e+00, 1.500e+01
-      N Arrays:   1
-
-    >>> zc = grid.add_field(
-    ...     "zc", np.arange(grid.number_of_corners), at="corner")
-    >>> non_raster_grid_to_pv_unstructured(grid, "zc", at="corner")
-    UnstructuredGrid (...)
-      N Cells:    6
-      N Points:   20
-      X Bounds:   -1.500e+00, 1.500e+00
-      Y Bounds:   -1.577e+00, 1.577e+00
-      Z Bounds:   0.000e+00, 1.900e+01
-      N Arrays:   1
-
     >>> non_raster_grid_to_pv_unstructured(grid, "z", at="node", is3d=True)
     UnstructuredGrid (...)
       N Cells:    20
@@ -357,7 +448,6 @@ def network_grid_to_pv_unstructured(grid, field_or_array_for_z):
     >>> nodes_at_link = ((1, 0), (2, 1), (3, 1))
     >>> nmg = NetworkModelGrid((y_of_node, x_of_node), nodes_at_link)
     >>> z = nmg.add_field("example_node_data", 0.1 * np.arange(4), at="node")
-    >>> _ = nmg.add_field("example_link_data", np.arange(3), at="link")
     >>> pvug = network_grid_to_pv_unstructured(nmg, z)
     >>> pvug
     UnstructuredGrid (...)
@@ -366,11 +456,7 @@ def network_grid_to_pv_unstructured(grid, field_or_array_for_z):
       X Bounds:   -1.000e+00, 1.000e+00
       Y Bounds:   0.000e+00, 2.000e+00
       Z Bounds:   0.000e+00, 3.000e-01
-      N Arrays:   2
-    >>> pvug.point_data["example_node_data"]
-    pyvista_ndarray([0. , 0.1, 0.2, 0.3])
-    >>> pvug.cell_data["example_link_data"]
-    pyvista_ndarray([0, 1, 2])
+      N Arrays:   1
     """
     x = grid.x_of_node
     y = grid.y_of_node
