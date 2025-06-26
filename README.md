@@ -3,6 +3,14 @@ This is a repo for developing tools and examples around using PyVista to visuali
 
 ## Installation
 
+It's recommended to use a virtual environment to avoid conflicts with other Python
+packages:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
 To install **llpvtools**, run:
 
 ```bash
