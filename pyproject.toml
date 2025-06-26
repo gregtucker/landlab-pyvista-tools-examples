@@ -5,3 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llpvtools"
 version = "0.0.1"
+dependencies = [
+    "landlab",
+    "numpy",
+    "pyvista",
+]
