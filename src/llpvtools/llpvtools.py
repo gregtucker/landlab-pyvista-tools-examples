@@ -258,7 +258,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
     raster_grid_to_pv2d_struct except that the PyVista grid
     is 3D, with two layers: one the z-coordinate of the Landlab
     grid, and the other either a flat surface at a constant z,
-    a specifies array of values for the height of the bottom
+    a specified array of values for the height of the bottom
     layer, or an existing field.
 
     Parameters
@@ -269,7 +269,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
         Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
-    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
+    base_vals : str, array, or float (optional; default lowest - 1/2 max width)
         Field name, array, or single value for the z of the bottom mesh layer.
 
     Returns
