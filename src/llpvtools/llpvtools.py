@@ -564,7 +564,7 @@ def _set_default_base_z(x, y, z):
     Parameters
     ----------
     x, y, z : ndarrays
-        Arrays containing the x, y, znd z coordinates of a mesh
+        Arrays containing the x, y, and z coordinates of a mesh
 
     Returns
     -------
