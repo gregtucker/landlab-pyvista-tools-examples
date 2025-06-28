@@ -34,9 +34,9 @@ def grid_to_pv(
     grid : Landlab model grid
         Grid to be translated into PyVista mesh(es)
     field_for_node_z : str, ndarray, or float (optional)
-        Values for node z coords (default "topographic__elevaton" if exists, or 0)
+        Values for node z coords (default "topographic__elevation" if exists, or 0)
     field_for_corner_z : str, ndarray, or float (optional)
-        Values for corner z coords (default "topographic__elevaton" if exists, or 0)
+        Values for corner z coords (default "topographic__elevation" if exists, or 0)
     make3d : bool (optional)
         Option to make a 3D mesh, with a top and bottom layer (default False)
     values_for_node_base : str, ndarray, or float (optional)
