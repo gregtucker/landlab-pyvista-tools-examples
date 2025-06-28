@@ -373,7 +373,7 @@ def non_raster_grid_to_pv_unstructured(
     grid, field_or_array_for_z, at, base_vals=None, is3d=False
 ):
     """
-    Create and return a pyVista UntructuredGrid. Used for non-raster
+    Create and return a pyVista UnstructuredGrid. Used for non-raster
     grid types such as HexModelGrid, RadialModelGrid, and IcosphereGlobalGrid.
 
     Parameters
@@ -384,9 +384,9 @@ def non_raster_grid_to_pv_unstructured(
         Name of field, or array, or single value to use for z coordinate
     at : str
         Which Landlab mesh type to translate: either "node" or "corner"
-    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
+    base_vals : str, array, or float (optional; default lowest - 1/2 max width)
         Field name, array, or single value for z of bottom mesh layer (if is3d==True)
-    is3d : book (optional)
+    is3d : bool (optional)
         If True, makes a 3D mesh with base_vals used for z at the bottom (default False)
 
     Returns
