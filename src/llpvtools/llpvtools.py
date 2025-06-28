@@ -880,11 +880,11 @@ def _get_pv_cell_type(number_of_vertices, is3d):
     ----------
     number_of_vertices : int
         Number of vertices in the cell
-    is3d : book
+    is3d : bool
         Indicates whether the cell is 2D (polygon) or 3D (polyhedron)
 
-    Return
-    ------
+    Returns
+    -------
     CellType
         The cell type code corresponding to the # of vertices and 2D/3D
     """
