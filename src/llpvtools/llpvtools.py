@@ -34,9 +34,9 @@ def grid_to_pv(
     grid : Landlab model grid
         Grid to be translated into PyVista mesh(es)
     field_for_node_z : str, ndarray, or float (optional)
-        Values for node z coords (default "topographic__elevaton" if exists, or 0)
+        Values for node z coords (default "topographic__elevation" if exists, or 0)
     field_for_corner_z : str, ndarray, or float (optional)
-        Values for corner z coords (default "topographic__elevaton" if exists, or 0)
+        Values for corner z coords (default "topographic__elevation" if exists, or 0)
     make3d : bool (optional)
         Option to make a 3D mesh, with a top and bottom layer (default False)
     values_for_node_base : str, ndarray, or float (optional)
@@ -258,7 +258,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
     raster_grid_to_pv2d_struct except that the PyVista grid
     is 3D, with two layers: one the z-coordinate of the Landlab
     grid, and the other either a flat surface at a constant z,
-    a specifies array of values for the height of the bottom
+    a specified array of values for the height of the bottom
     layer, or an existing field.
 
     Parameters
@@ -269,7 +269,7 @@ def raster_grid_to_pv3d_struct(grid, field_or_array_for_z, at="node", base_vals=
         Name of field, or array, or single value to use for z coordinate
     at : str (optional)
         Which points to use: "node" (default) or "corner"
-    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
+    base_vals : str, array, or float (optional; default lowest - 1/2 max width)
         Field name, array, or single value for the z of the bottom mesh layer.
 
     Returns
@@ -373,7 +373,7 @@ def non_raster_grid_to_pv_unstructured(
     grid, field_or_array_for_z, at, base_vals=None, is3d=False
 ):
     """
-    Create and return a pyVista UntructuredGrid. Used for non-raster
+    Create and return a pyVista UnstructuredGrid. Used for non-raster
     grid types such as HexModelGrid, RadialModelGrid, and IcosphereGlobalGrid.
 
     Parameters
@@ -384,9 +384,9 @@ def non_raster_grid_to_pv_unstructured(
         Name of field, or array, or single value to use for z coordinate
     at : str
         Which Landlab mesh type to translate: either "node" or "corner"
-    base_vals : str, array, or float (optional; default lowest - 1/2 max wid)
+    base_vals : str, array, or float (optional; default lowest - 1/2 max width)
         Field name, array, or single value for z of bottom mesh layer (if is3d==True)
-    is3d : book (optional)
+    is3d : bool (optional)
         If True, makes a 3D mesh with base_vals used for z at the bottom (default False)
 
     Returns
@@ -564,7 +564,7 @@ def _set_default_base_z(x, y, z):
     Parameters
     ----------
     x, y, z : ndarrays
-        Arrays containing the x, y, znd z coordinates of a mesh
+        Arrays containing the x, y, and z coordinates of a mesh
 
     Returns
     -------
@@ -880,11 +880,11 @@ def _get_pv_cell_type(number_of_vertices, is3d):
     ----------
     number_of_vertices : int
         Number of vertices in the cell
-    is3d : book
+    is3d : bool
         Indicates whether the cell is 2D (polygon) or 3D (polyhedron)
 
-    Return
-    ------
+    Returns
+    -------
     CellType
         The cell type code corresponding to the # of vertices and 2D/3D
     """
