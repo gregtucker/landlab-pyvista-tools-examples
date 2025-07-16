@@ -555,6 +555,19 @@ def _get_z_corner_vals(grid, vals):
     return vals
 
 
+def _transpose_raster_grid_values(grid, vals, at):
+    assert isinstance(grid, RasterModelGrid)
+    nr = grid.number_of_node_rows
+    nc = grid.number_of_node_columns
+    if at == "corner" or at == "patch":
+        nr -= 1
+        nc -= 1
+    elif at == "cell":
+        nr -= 2
+        nc -= 2
+    return np.transpose(vals.reshape((nr, nc))).flatten()
+
+
 def _set_default_base_z(x, y, z):
     """
     Return a default constant value for the depth of a 3D mesh.
@@ -621,11 +634,10 @@ def _add_fields_to_pv_dataset(
     ['node_field1', 'node_field2']
     """
     is3d = False
+    npts = grid.number_of_elements(at)
     if at == "node":
-        npts = grid.number_of_nodes
         polyname = "patch"
     else:
-        npts = grid.number_of_corners
         polyname = "cell"
     if dataset.n_points == (2 * npts):
         is3d = True
@@ -636,13 +648,13 @@ def _add_fields_to_pv_dataset(
             if is3d:
                 vals = np.hstack((vals, base_vals + np.zeros(npts)))
             if transpose:
-                nr = grid.number_of_node_rows
-                nc = grid.number_of_node_columns
-                vals = np.transpose(vals.reshape((nr, nc))).flatten()
+                vals = _transpose_raster_grid_values(grid, vals, at)
             dataset.point_data[fieldname] = vals
     for field in grid.fields(include="at_" + polyname + "*"):
         fieldname = field[field.find(":") + 1 :]
         vals = grid.field_values(fieldname, at=polyname)
+        if transpose:
+            vals = _transpose_raster_grid_values(grid, vals, polyname)
         dataset.cell_data[fieldname] = vals
 
 
