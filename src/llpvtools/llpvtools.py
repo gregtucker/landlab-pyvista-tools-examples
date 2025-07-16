@@ -365,7 +365,7 @@ def raster_grid_to_pv2d_struct(grid, field_or_array_for_z, at="node"):
     """
     x, y, z = _get_reshaped_xyz(grid, field_or_array_for_z, at)
     struc_pv_grid = pv.StructuredGrid(x, y, z)
-    _add_fields_to_pv_dataset(grid, struc_pv_grid, at=at)
+    _add_fields_to_pv_dataset(grid, struc_pv_grid, at=at, transpose=True)
     return struc_pv_grid
 
 
@@ -573,9 +573,14 @@ def _set_default_base_z(x, y, z):
     return np.amin(z) - max(np.amax(x) - np.amin(x), np.amax(y) - np.amin(y)) / 2
 
 
-def _add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.0):
+def _add_fields_to_pv_dataset(
+    grid, dataset, z_field="", at="node", base_vals=0.0, transpose=False
+):
     """
     Add grid fields to a PyVista DataSet as data arrays.
+
+    Note that the "transpose" parameter is needed only with
+    2D raster meshes; otherwise, it should be False.
 
     Parameters
     ----------
@@ -589,6 +594,8 @@ def _add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.
         Name of Landlab grid element (default "node")
     base_vals : float (optional)
         If 3d, value to use for bottom points (default 0.0)
+    transpose : bool (optional)
+        If true, transposes the gridded value to match PV (default False)
 
     Returns
     -------
@@ -628,6 +635,10 @@ def _add_fields_to_pv_dataset(grid, dataset, z_field="", at="node", base_vals=0.
             vals = grid.field_values(fieldname, at=at)
             if is3d:
                 vals = np.hstack((vals, base_vals + np.zeros(npts)))
+            if transpose:
+                nr = grid.number_of_node_rows
+                nc = grid.number_of_node_columns
+                vals = np.transpose(vals.reshape((nr, nc))).flatten()
             dataset.point_data[fieldname] = vals
     for field in grid.fields(include="at_" + polyname + "*"):
         fieldname = field[field.find(":") + 1 :]
